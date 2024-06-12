@@ -1,15 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES6",
+    "lib": ["es5", "es6"],
+    "target": "es5",
     "module": "commonjs",
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
-    "noEmit": true
-  },
-  "include": ["src"],
-  "exclude": ["node_modules"]
+    "moduleResolution": "node",
+    "outDir": "./build",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "esModuleInterop": true
+  }
 }
