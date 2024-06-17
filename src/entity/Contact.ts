@@ -12,8 +12,8 @@ export class Contact {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: "varchar", length: 12, nullable: true })
-  phoneNumber: string | null;
+  @Column({ type: "bigint", nullable: true })
+  phoneNumber: number | null;
 
   @Column({ type: "varchar", length: 30, nullable: true })
   email: string | null;

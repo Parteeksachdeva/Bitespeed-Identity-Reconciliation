@@ -1,5 +1,7 @@
 import express from "express";
 import { json } from "body-parser";
+require("dotenv").config();
+
 import { ContactRoute } from "./routes/ContactRoute";
 
 const app = express();
