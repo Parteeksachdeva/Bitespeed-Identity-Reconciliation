@@ -1,6 +1,5 @@
 import app from "./app";
 import { AppDataSource } from "./data-source";
-import { User } from "./entity/User";
 
 const PORT = process.env.PORT || 3000;
 

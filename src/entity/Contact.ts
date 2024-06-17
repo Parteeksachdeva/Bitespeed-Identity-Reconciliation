@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
+  Index,
 } from "typeorm";
 
 @Entity()
@@ -12,13 +13,16 @@ export class Contact {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Index()
   @Column({ type: "bigint", nullable: true })
   phoneNumber: number | null;
 
+  @Index()
   @Column({ type: "varchar", length: 30, nullable: true })
   email: string | null;
 
-  @Column({ type: "int", nullable: true })
+  @Index()
+  @Column({ type: "bigint", nullable: true })
   linkedId: number | null;
 
   @Column({
