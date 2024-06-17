@@ -2,21 +2,44 @@ import { QueryRunner, Repository } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Contact } from "../entity/Contact";
 
+interface ContactResponse {
+  contact: {
+    primaryContactId: number;
+    emails: string[];
+    phoneNumbers: number[];
+    secondaryContactIds: number[];
+  };
+}
+
 class ContactService {
   private contactRepository: Repository<Contact>;
   constructor() {
     this.contactRepository = AppDataSource.getRepository(Contact);
   }
 
-  public async identifyContact(email = null, phoneNumber = null) {
+  /**
+   * Identifies and consolidates contact information based on the given email or phone number.
+   * This includes creating new primary contacts, linking secondary contacts, and ensuring
+   * unique consolidated data for emails and phone numbers.
+   *
+   * @param {string | null} email - The email address to identify the contact by (optional).
+   * @param {number | null} phoneNumber - The phone number to identify the contact by (optional).
+   * @returns {Promise<ContactResponse>} - The consolidated contact information.
+   * @throws {Error} - Throws an error if the contact identification process fails.
+   */
+  public async identifyContact(
+    email: string | null = null,
+    phoneNumber: number | null = null
+  ): Promise<ContactResponse> {
     try {
-      //find all contacts with email or phone number order by createdAt ascending
+      // Find all contacts with the given email or phone number, ordered by createdAt ascending
       const existingContacts = await this.contactRepository.find({
         select: ["id", "email", "phoneNumber", "linkPrecedence", "linkedId"],
         where: [{ email: email }, { phoneNumber: phoneNumber }],
         order: { createdAt: "ASC" },
       });
 
+      // No existing contacts, create a new primary contact
       if (!existingContacts.length) {
         const newContact = this.contactRepository.create({
           email,
@@ -27,26 +50,24 @@ class ContactService {
 
         return {
           contact: {
-            primaryContactId: contact.id,
+            primaryContactId: Number(contact.id),
             emails: [email],
-            phoneNumbers: [phoneNumber],
+            phoneNumbers: [Number(phoneNumber)].filter(Boolean),
             secondaryContactIds: [],
           },
         };
       }
 
+      // Separate primary and secondary contacts
       let primaryContact = existingContacts.filter(
         (c) => c.linkPrecedence === "primary"
       );
-
       let secondaryContact = existingContacts.filter(
         (c) => c.linkPrecedence === "secondary"
       );
 
+      // Handle case where there are no primary contacts but there are secondary contacts
       if (primaryContact.length === 0 && secondaryContact.length > 0) {
-        // if no primary take linkedID from any one from array and then fetch primary
-        console.log("No primary contact only sec");
-
         const primaryId = secondaryContact[0].linkedId;
         const primary = await this.contactRepository.find({
           select: ["id", "email", "phoneNumber", "linkPrecedence", "linkedId"],
@@ -59,10 +80,8 @@ class ContactService {
         });
       }
 
+      // Handle case for multiple primary contacts
       if (primaryContact.length > 1) {
-        console.log("Multiple primary contact");
-
-        // Multiple primary's convert 2nd or above to secondary contacts
         let query = "";
         for (let index = 1; index < primaryContact.length; index++) {
           const contact = primaryContact[index];
@@ -72,31 +91,31 @@ class ContactService {
           query += `
             UPDATE contact
             SET "linkedId" = ${primaryContact[0].id}, "linkPrecedence" = 'secondary'
-            WHERE id = ${contact.id};`;
-
-          query += `
+            WHERE id = ${contact.id};
+            
             UPDATE contact
             SET "linkedId" = ${primaryContact[0].id}
-            WHERE "linkedId" = ${contact.id};`;
+            WHERE "linkedId" = ${contact.id};
+            `;
 
           secondaryContact.push({ ...contact });
         }
 
-        // Need to change linkedId of contacts to new primary that we have converted (bulk update)
-        console.log({ query });
-
+        // Perform bulk update to change the linkedId of all contacts that were converted from primary to secondary
+        // This ensures that the linkedId of both the converted primary contacts and their associated secondary contacts
+        // are updated to point to the new primary contact
         await this.contactRepository.query(query);
 
         primaryContact = [primaryContact[0]];
       }
 
+      // Create a new secondary contact if the combination is new
       if (
         !existingContacts.some(
           (c) =>
             c.email === email && Number(c.phoneNumber) === Number(phoneNumber)
         )
       ) {
-        console.log("Creating new secondary");
         const newContact = this.contactRepository.create({
           email,
           phoneNumber,
@@ -108,6 +127,7 @@ class ContactService {
         secondaryContact.push(contact);
       }
 
+      // Consolidate unique emails and phone numbers
       const emails = Array.from(
         new Set(
           [
@@ -116,7 +136,6 @@ class ContactService {
           ].filter((e) => e)
         )
       );
-
       const phoneNumbers = Array.from(
         new Set(
           [
@@ -128,12 +147,10 @@ class ContactService {
 
       return {
         contact: {
-          primaryContatctId: primaryContact[0].id,
+          primaryContactId: Number(primaryContact[0].id),
           emails,
           phoneNumbers,
           secondaryContactIds: secondaryContact.map((e) => e.id),
-          primaryContact,
-          secondaryContact,
         },
       };
     } catch (error) {
